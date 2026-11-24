@@ -1,0 +1,62 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 步骤1：检出代码
+      - uses: actions/checkout@v4
+
+      # 步骤1：配置 Python 环境
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      # 步骤5：缓存 pip 依赖，加速 CI 流程
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      # 步骤2：安装项目依赖与测试工具
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov flake8 mypy
+
+      # 步骤3：代码风格检查（linting）
+      - name: Lint with flake8
+        run: flake8 src --max-line-length=120 --count --statistics
+
+      # 步骤3：静态类型检查（type checking）
+      - name: Type check with mypy
+        run: mypy src --ignore-missing-imports
+
+      # 步骤2：运行单元测试并生成覆盖率报告
+      - name: Run tests
+        run: pytest --cov=src --cov-report=xml
+
+      # 步骤2：上传覆盖率报告
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+
+      # 步骤4：构建 Docker 镜像（标签使用 commit sha，便于追溯与回滚）
+      - name: Build Docker image
+        run: docker build -t ml-api:${{ github.sha }} .
+
+      # 步骤4：启动容器并通过健康检查
+      - name: Test Docker image
+        run: |
+          docker run -d -p 8000:8000 --name test ml-api:${{ github.sha }}
+          sleep 5
+          curl -f http://localhost:8000/health || exit 1
+          docker stop test

@@ -1,0 +1,8 @@
+# 测试与质量检查工具
+pytest>=8.0
+pytest-cov>=4.0
+flake8>=6.0
+mypy>=1.0
+
+# 说明：真实 ML 项目在此补充 PyTorch、numpy、onnxruntime 等依赖；
+# 本示例骨架为保证 CI 轻量可跑通，未引入深度学习框架。
